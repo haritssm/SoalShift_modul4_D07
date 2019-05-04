@@ -128,7 +128,11 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			//printf("\n%s; %s; %s; %s;\n",new, pw->pw_name,gr->gr_name,ctime(&info.st_mtime));
 			FILE *fl;
 			if(strcmp(pw->pw_name,owner1)==0 || strcmp(pw->pw_name,owner2)==0 || strcmp(gr->gr_name,group)==0){
-				fl = fopen("/home/zicoritonda/shift4/V[EOr[c[Y`HDH","a");
+				char filemiris[50] = "/home/zicoritonda/shift4/";
+				char *fm = encode_CC("filemiris.txt",13);
+				strcat(filemiris,fm);
+				printf("%s\n",filemiris);
+				fl = fopen(filemiris,"a");
 				fprintf(fl,"%s; %s; %s; %s",new,pw->pw_name,gr->gr_name,ctime(&info.st_mtime));
 				printf("---File Berbahaya---\n");
 				chmod(loc,777);
@@ -138,9 +142,23 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 			//soal4
 			printf("\n%s\n",fpath);
-			if(strcmp(fpath,"/home/zicoritonda/shift4/@ZA>AXio")==0){
-				printf("\nChange Mode\n");
-				chmod(loc,705);
+			char youtube[50] = "/home/zicoritonda/shift4/";
+			char *yt = encode_CC("YOUTUBER",8);
+			strcat(youtube,yt);
+			printf("untuk soal no 4: %s\n",youtube);
+			if(strcmp(fpath,youtube)==0){
+				if(S_ISREG(info.st_mode)){
+					printf("\nChange Mode of a File\n");
+					//char newloc[1000];
+					//sprintf(newloc,"%s%s.iz1",fpath,de->d_name);
+					chmod(loc,640);
+					//rename(loc,newloc);
+				}
+				if(S_ISDIR(info.st_mode)){
+					printf("\nChange Mode of a Directory\n");
+					chmod(loc,705);
+				}
+				//chmod(loc,705);
 				//st.st_mode = S_IFDIR | 0705;
 			}
 
@@ -169,3 +187,103 @@ sprintf(fpath,"%s%s",dirpath,newpath);
 Pada soal nomor 3, kita harus dapat mencek owner dan group dari file tersebut. Jika file tersebut memiliki owner "chipset" atau "ic_controller" atau group "rusak" ataupun file tidak dapat dibuka maka kita harus menghapus file tersebut dan memasukan nama file nya kedalam file bernama filemiris.txt
 
 ### Penyelesaian
+Untuk dapat mengetahui owner file kita harus mengakses stat dari file tersebut.
+```
+stat(loc,&info);
+struct passwd *pw = getpwuid(info.st_uid);
+struct group *gr = getgrgid(info.st_gid);
+```
+
+Jika file memiliki owner atau group yang sesuai kriteria maka file akan dihapus dan dibuat filemiri.txt
+```
+char owner1[10] = "chipset";
+char owner2[15] = "ic_controller";
+char group[10] = "rusak";
+FILE *fl;
+if(strcmp(pw->pw_name,owner1)==0 || strcmp(pw->pw_name,owner2)==0 || strcmp(gr->gr_name,group)==0){
+	char filemiris[50] = "/home/zicoritonda/shift4/";
+	char *fm = encode_CC("filemiris.txt",13);
+	strcat(filemiris,fm);
+	printf("%s\n",filemiris);
+	fl = fopen(filemiris,"a");
+	fprintf(fl,"%s; %s; %s; %s",new,pw->pw_name,gr->gr_name,ctime(&info.st_mtime));
+	printf("---File Berbahaya---\n");
+	chmod(loc,777);
+	remove(loc);
+	fclose(fl);
+}
+```
+
+## Soal 4
+Pada soal nomor 4, pada saat kita membuat file atau folder kita harus dapat mengganti mode folder menjadi 705 dan mode file menjadi 640 dan juga menambahkan ekstensi .iz1 jika folder dan file tersebut berada dalam folder YOUTUBER pada filesystem.
+
+### Penyelesaian
+Pertama kita harus mencek apakah sedang berada pada folder YOUTUBER. Setelah itu kita cek apakah merupakan folder ataupun file. Jika folder kita ganti modenya menjadi 705 dan file menjadi 640.
+```
+char youtube[50] = "/home/zicoritonda/shift4/";
+char *yt = encode_CC("YOUTUBER",8);
+strcat(youtube,yt);
+if(strcmp(fpath,youtube)==0){
+	if(S_ISREG(info.st_mode)){
+		printf("\nChange Mode of a File\n");
+		chmod(loc,640);
+	}
+	if(S_ISDIR(info.st_mode)){
+		printf("\nChange Mode of a Directory\n");
+		chmod(loc,705);
+	}
+}
+```
+
+Untuk dapat mengganti ekstemsi dari file yang telah dibuat kami mengganti nama filenya pada fungsi xmp_create.
+```
+static int xmp_create(const char *path, mode_t mode,
+                      struct fuse_file_info *fi)
+{
+        int res;
+        int len = strlen(path);
+		char *newpath = encode_CC((char *)path,len);
+		char loc[500];
+		sprintf(loc,"%s%s",dirpath,newpath);
+        //res = open(loc, fi->flags, mode);
+	
+		//soal4
+        char *point;
+	if((point = strstr(newpath,"YOUTUBER")) != NULL){
+		strcat(loc,".iz1");
+		res = open(loc, fi->flags, mode);			
+	}
+	else res = open(loc, fi->flags, mode);
+
+        if (res == -1)
+                return -errno;
+        fi->fh = res;
+        return 0;
+}
+```
+
+Untuk file dengan ekstensi .iz1 tidak dapat diubah modenya. Jika mode diubah akan memunculkan suatu  pesan bahwa mode file tidak dapat diubah. Untuk melakukannya kami menggunakan zenity dan memanggilnya pada fungsi chmod dengan cara mencek extensinya.
+```
+static int xmp_chmod(const char *path, mode_t mode)
+{
+        int res;
+        int len = strlen(path);
+		char *newpath = encode_CC((char *)path,len);
+		char loc[1000];
+		sprintf(loc,"%s/%s",dirpath,newpath);
+	
+		//soal4
+		char *point;
+		if((point = strstr(newpath,".iz1")) != NULL){
+			printf("\nTidak bisa ganti\n");
+			char *argv[5] = {"zenity","--error","--text","File ekstensi iz1 tidak boleh diubah permissionnya.",NULL};
+			execv("/usr/bin/zenity",argv);
+		}
+		else res = chmod(loc, mode);
+
+        res = chmod(loc, mode);
+        if (res == -1)
+                return -errno;
+        return 0;
+}
+```
