@@ -74,3 +74,98 @@ char *decode_CC(char str[],int len){//decode caesar cipher ; key:17
 	return result;
 }
 ```
+
+Jadi parameter untuk fungsi enkripsi dan dekripsi ini adalah string yang ingin diubah dan juga panjang stringnya. String akan diubah perkarakter dengan cara menambahkan dengan key dan akan mengubahnya dengan karater yang ada pada array listChar.
+
+Karena sebelum dimount file terenkripsi maka kita harus dapat mendekripsinya. Untuk melakukan hal tersebut kami mengubah namanya saat filesistem melakukan fungsi readdir.
+```
+static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+		       off_t offset, struct fuse_file_info *fi)
+{
+  	char fpath[1000];
+  	int len = strlen(path);
+  	char *newpath = encode_CC((char *)path,len);
+	if(strcmp(path,"/") == 0)
+	{
+		path=dirpath;
+		sprintf(fpath,"%s",path);
+	}
+	else{
+		sprintf(fpath, "%s%s",dirpath,newpath);
+	}
+	int res = 0;
+
+	DIR *dp;
+	struct dirent *de;
+
+	(void) offset;
+	(void) fi;
+
+	dp = opendir(fpath);
+	if (dp == NULL)
+		return -errno;
+
+	while ((de = readdir(dp)) != NULL) {
+		if(strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0){
+			int len = strlen(de->d_name);
+			char *new = decode_CC(de->d_name,len); //soal 1
+
+			//soal 3
+			char loc[1000];
+			sprintf(loc,"%s/%s",fpath,de->d_name);
+			struct stat st, info;
+			memset(&st, 0, sizeof(st));
+			memset(&info, 0, sizeof(info));
+			st.st_ino = de->d_ino;
+			st.st_mode = de->d_type << 12;
+
+			stat(loc,&info);
+			struct passwd *pw = getpwuid(info.st_uid);
+			struct group *gr = getgrgid(info.st_gid);
+			char owner1[10] = "chipset";
+			char owner2[15] = "ic_controller";
+			char group[10] = "rusak";
+			//printf("\n%s; %s; %s; %s;\n",new, pw->pw_name,gr->gr_name,ctime(&info.st_mtime));
+			FILE *fl;
+			if(strcmp(pw->pw_name,owner1)==0 || strcmp(pw->pw_name,owner2)==0 || strcmp(gr->gr_name,group)==0){
+				fl = fopen("/home/zicoritonda/shift4/V[EOr[c[Y`HDH","a");
+				fprintf(fl,"%s; %s; %s; %s",new,pw->pw_name,gr->gr_name,ctime(&info.st_mtime));
+				printf("---File Berbahaya---\n");
+				chmod(loc,777);
+				remove(loc);
+				fclose(fl);
+			}
+
+			//soal4
+			printf("\n%s\n",fpath);
+			if(strcmp(fpath,"/home/zicoritonda/shift4/@ZA>AXio")==0){
+				printf("\nChange Mode\n");
+				chmod(loc,705);
+				//st.st_mode = S_IFDIR | 0705;
+			}
+
+			res = (filler(buf, new, &st, 0));
+			if(res!=0) break;
+		}
+	}
+
+	closedir(dp);
+	return 0;
+}
+```
+```
+int len = strlen(de->d_name);
+char *new = decode_CC(de->d_name,len); //soal 1
+```
+
+Karena ini hanya mengubah nama tampilanya saja dan file sebenarnya memiliki nama file yang berbeda, maka setiap kali kita akan mengaksesnya kita harus men enkripsinya kembali dan hal ini dilakukan pada fungsi lainnya.
+```
+int len = strlen(path);
+char *newpath = encode_CC((char *)path,len);
+sprintf(fpath,"%s%s",dirpath,newpath);
+```
+
+## Soal 3
+Pada soal nomor 3, kita harus dapat mencek owner dan group dari file tersebut. Jika file tersebut memiliki owner "chipset" atau "ic_controller" atau group "rusak" ataupun file tidak dapat dibuka maka kita harus menghapus file tersebut dan memasukan nama file nya kedalam file bernama filemiris.txt
+
+### Penyelesaian
